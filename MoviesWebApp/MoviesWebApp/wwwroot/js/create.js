@@ -1,5 +1,6 @@
-import { apiFetch, parseNumber, parseIntOrZero, loadNavbarFooter, getMovieUrl } from "./site.js";
+import { apiFetch, getMovieUrl, loadNavbarFooter, parseIntOrZero, parseNumber } from "./site.js";
 
+/** Initializes the movie creation page components and form submission logic. */
 document.addEventListener("DOMContentLoaded", () => {
     loadNavbarFooter();
 
@@ -9,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const successDiv = document.getElementById("message-success");
     const errorDiv = document.getElementById("message-error");
 
+    /** Handles form submission by collecting data and coordinating the API POST request. */
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
@@ -37,16 +39,32 @@ document.addEventListener("DOMContentLoaded", () => {
                 successDiv.classList.remove("d-none");
                 setTimeout(() => successDiv.classList.add("d-none"), 3000);
                 form.reset();
-            } else {
-                const error = await response.text();
-                errorDiv.textContent = "Error: " + error;
+            }
+            else {
+                let errorMessage = `Error ${response.status}: `;
+                try {
+                    const errorObj = await response.json();
+                    if (errorObj.errors) {
+                        errorMessage += Object.values(errorObj.errors).flat().join(" | ");
+                    }
+                    else if (errorObj.message) {
+                        errorMessage += errorObj.message;
+                    }
+                    else {
+                        errorMessage += "An unexpected error occurred.";
+                    }
+                } catch (e) {
+                    errorMessage += response.statusText || "Communication failed with the server.";
+                }
+
+                errorDiv.textContent = errorMessage;
                 errorDiv.classList.remove("d-none");
-                setTimeout(() => errorDiv.classList.add("d-none"), 3000);
+                setTimeout(() => errorDiv.classList.add("d-none"), 10000);
             }
         } catch (err) {
             errorDiv.textContent = "Error: " + err;
             errorDiv.classList.remove("d-none");
-            setTimeout(() => errorDiv.classList.add("d-none"), 3000);
+            setTimeout(() => errorDiv.classList.add("d-none"), 10000);
         }
     });
 });

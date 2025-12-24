@@ -1,19 +1,41 @@
-import { apiFetch, loadNavbarFooter, getMovieUrl } from "./site.js";
+import { apiFetch, getMovieUrl, loadNavbarFooter } from "./site.js";
 
+/** Main entry point for the movie catalog page. */
 document.addEventListener("DOMContentLoaded", async () => {
     loadNavbarFooter();
     await loadMovies();
 });
 
+/** Fetches the movie collection and renders it using a standardized error system. */
 async function loadMovies() {
     const container = document.getElementById("movieList");
     if (!container) return;
+
+    // Friendly notification for potentially slow initial API response
     container.innerHTML = "<div>Waking up API... Please be patient</div>";
 
     try {
         const response = await apiFetch(getMovieUrl());
+
         if (!response.ok) {
-            container.innerHTML = `<div class="text-danger">Failed to load movies: ${response.status}</div>`;
+            const errorText = await response.text();
+            let errorMessage = `Error ${response.status}: `;
+            try {
+                const errorObj = await response.json();
+                if (errorObj.errors) {
+                    errorMessage += Object.values(errorObj.errors).flat().join(" | ");
+                }
+                else if (errorObj.message) {
+                    errorMessage += errorObj.message;
+                }
+                else {
+                    errorMessage += "An unexpected error occurred.";
+                }
+            } catch (e) {
+                errorMessage += response.statusText || "Communication failed with the server.";
+            }
+
+            container.innerHTML = `<div class="text-danger">${errorMessage}</div>`;
             return;
         }
 
@@ -26,6 +48,7 @@ async function loadMovies() {
 
         container.innerHTML = "";
 
+        /** Iterates through the movie list to generate dynamic UI items and links. */
         movies.forEach(movie => {
             const item = document.createElement("div");
             item.className = "list-group-item d-flex justify-content-between align-items-center";
@@ -43,7 +66,6 @@ async function loadMovies() {
             editBtn.textContent = "Edit";
 
             actions.appendChild(editBtn);
-
             item.appendChild(titleLink);
             item.appendChild(actions);
 

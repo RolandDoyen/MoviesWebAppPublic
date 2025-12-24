@@ -1,15 +1,18 @@
-import { apiFetch, loadNavbarFooter, getMovieUrl, parseNumber, parseIntOrZero } from "./site.js";
+import { apiFetch, getMovieUrl, loadNavbarFooter, parseIntOrZero, parseNumber } from "./site.js";
 
+/** Orchestrates the edition page setup including data pre-loading and navigation. */
 document.addEventListener("DOMContentLoaded", async () => {
     loadNavbarFooter();
     await loadEditForm();
 });
 
+/** Extracts the 'id' parameter from the current browser URL. */
 function getMovieIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
     return params.get("id");
 }
 
+/** Fetches movie data to populate the edit form and attaches PUT/DELETE listeners. */
 async function loadEditForm() {
     const container = document.getElementById("editFormContainer");
     if (!container) return;
@@ -31,6 +34,7 @@ async function loadEditForm() {
 
         const movie = await response.json();
 
+        /** Dynamically generates the form pre-filled with existing movie metadata. */
         container.innerHTML = `
             <h3>Edit Movie: ${movie.title}</h3>
             <form id="editForm">
@@ -88,6 +92,7 @@ async function loadEditForm() {
         const successDiv = document.getElementById("message-success");
         const errorDiv = document.getElementById("message-error");
 
+        /** Collects updated form data and triggers a PUT request to the API. */
         document.getElementById("editForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const updatedMovie = {
@@ -105,50 +110,81 @@ async function loadEditForm() {
             };
 
             try {
-                const res = await apiFetch(getMovieUrl(id), {
+                const response = await apiFetch(getMovieUrl(id), {
                     method: "PUT",
                     body: JSON.stringify(updatedMovie)
                 });
 
-                if (res.ok) {
+                if (response.ok) {
                     successDiv.textContent = "Movie updated successfully!";
                     successDiv.classList.remove("d-none");
-                    setTimeout(() => successDiv.classList.add("d-none"), 3000);
+                    setTimeout(() => successDiv.classList.add("d-none"), 5000);
                 } else {
-                    const err = await res.text();
-                    errorDiv.textContent = "Error: " + err;
+                    let errorMessage = `Error ${response.status}: `;
+                    try {
+                        const errorObj = await response.json();
+                        if (errorObj.errors) {
+                            errorMessage += Object.values(errorObj.errors).flat().join(" | ");
+                        }
+                        else if (errorObj.message) {
+                            errorMessage += errorObj.message;
+                        }
+                        else {
+                            errorMessage += "An unexpected error occurred.";
+                        }
+                    } catch (e) {
+                        errorMessage += response.statusText || "Communication failed with the server.";
+                    }
+
+                    errorDiv.textContent = errorMessage;
                     errorDiv.classList.remove("d-none");
-                    setTimeout(() => errorDiv.classList.add("d-none"), 5000);
+                    setTimeout(() => errorDiv.classList.add("d-none"), 10000);
                 }
             } catch (err) {
                 errorDiv.textContent = "Error: " + err;
                 errorDiv.classList.remove("d-none");
-                setTimeout(() => errorDiv.classList.add("d-none"), 5000);
+                setTimeout(() => errorDiv.classList.add("d-none"), 10000);
             }
         });
 
+        /** Prompts for confirmation and triggers a DELETE request before redirecting. */
         document.getElementById("deleteBtn").addEventListener("click", async () => {
             if (!confirm("Are you sure you want to delete this movie?")) return;
 
             try {
-                const res = await apiFetch(getMovieUrl(id), { method: "DELETE" });
-                if (res.ok) {
+                const response = await apiFetch(getMovieUrl(id), { method: "DELETE" });
+                if (response.ok) {
+                    sessionStorage.setItem("movie_success_message", "Movie deleted successfully!");
                     window.location.href = "movies.html";
                 } else {
-                    const err = await res.text();
-                    errorDiv.textContent = "Error deleting movie: " + err;
+                    let errorMessage = `Error ${response.status}: `;
+                    try {
+                        const errorObj = await response.json();
+                        if (errorObj.errors) {
+                            errorMessage += Object.values(errorObj.errors).flat().join(" | ");
+                        }
+                        else if (errorObj.message) {
+                            errorMessage += errorObj.message;
+                        }
+                        else {
+                            errorMessage += "An unexpected error occurred.";
+                        }
+                    } catch (e) {
+                        errorMessage += response.statusText || "Communication failed with the server.";
+                    }
+
+                    errorDiv.textContent = errorMessage;
                     errorDiv.classList.remove("d-none");
-                    setTimeout(() => errorDiv.classList.add("d-none"), 5000);
+                    setTimeout(() => errorDiv.classList.add("d-none"), 10000);
                 }
             } catch (err) {
                 errorDiv.textContent = "Error deleting movie: " + err;
                 errorDiv.classList.remove("d-none");
-                setTimeout(() => errorDiv.classList.add("d-none"), 5000);
+                setTimeout(() => errorDiv.classList.add("d-none"), 10000);
             }
         });
 
     } catch (err) {
         container.innerHTML = `<div class="text-danger">Error loading movie: ${err}</div>`;
-        console.error(err);
     }
 }

@@ -1,19 +1,23 @@
-import { apiFetch, loadNavbarFooter, getMovieUrl } from "./site.js";
+import { apiFetch, getMovieUrl, loadNavbarFooter } from "./site.js";
 
+/** Initializes navigation components and triggers movie metadata fetching. */
 document.addEventListener("DOMContentLoaded", async () => {
     loadNavbarFooter();
     await loadMovieDetails();
 });
 
+/** Retrieves the 'id' parameter from the current URL query string. */
 function getMovieIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
     return params.get("id");
 }
 
+/** Fetches and renders the details of a specific movie into the DOM. */
 async function loadMovieDetails() {
     const container = document.getElementById("movieDetails");
     const id = getMovieIdFromUrl();
 
+    // Early return if no ID is found in the query string
     if (!id) {
         container.innerHTML = "<div class='text-danger'>No movie ID specified.</div>";
         return;
@@ -23,13 +27,28 @@ async function loadMovieDetails() {
 
     try {
         const response = await apiFetch(getMovieUrl(id));
+        const errorDiv = document.getElementById("message-error");
+
         if (!response.ok) {
-            container.innerHTML = `<div class="text-danger">Failed to load movie: ${response.status}</div>`;
+            const errorText = await response.text();
+            let errorMessage = `Failed to load movie (Error ${response.status})`;
+            try {
+                const errorObj = JSON.parse(errorText);
+                if (errorObj.message) errorMessage = errorObj.message;
+            } catch (e) {
+                // Fallback to the default status-based error message
+            }
+
+            errorDiv.textContent = errorMessage;
+            errorDiv.classList.remove("d-none");
+            setTimeout(() => errorDiv.classList.add("d-none"), 10000);
+
             return;
         }
 
         const movie = await response.json();
 
+        /** Maps movie object properties to HTML elements including conditional formatting. */
         container.innerHTML = `
             <h3>${movie.title}</h3>
             <p><strong>Year:</strong> ${movie.year}</p>
